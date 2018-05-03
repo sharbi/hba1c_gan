@@ -101,11 +101,16 @@ for key, value in sorted(X.items()):
             X_array = np.concatenate((X_array, [value[:, :12]]))
             y_array = np.concatenate((y_array, y[key]))
 
+# Make normalization between -1 and 1
+sbp_normalization_value = float(sbp_max) / 2
+dpb_normalization_value = float(dbp_max) / 2
+n_bp_normalization_value = float(n_bp_max) / 2
+
 #next
 for val in X_array:
-    val[0] = val[0] / float(sbp_max)
-    val[1] = val[1] / float(dbp_max)
-    val[2] = val[2] / float(n_bp_max)
+    val[0] = val[0] - sbp_normalization_value / sbp_normalization_value
+    val[1] = val[1] - dpb_normalization_value / dpb_normalization_value
+    val[2] = val[2] - n_bp_normalization_value / n_bp_normalization_value 
 
 print(X_array[:3])
 
