@@ -41,24 +41,26 @@ def build_generator(latent_size):
     print('Generator')
     cnn = Sequential()
 
-    cnn.add(Dense(32 * 1 * 4, activation='relu', input_dim=latent_size))
-    cnn.add(LeakyReLU())
-    cnn.add(Reshape((32, 1, 4)))
+    cnn.add(Dense(32 * 4 * 4, activation='relu', input_dim=latent_size))
+    cnn.add(LeakyReLU(0.2))
+    cnn.add(Reshape((32, 4, 4)))
+    cnn.add(Dropout(0.5))
+
+    cnn.add(Conv2DTranspose(256, 4, strides=2, padding='same',
+                   kernel_initializer='glorot_normal'))
+    cnn.add(LeakyReLU(0.2))
     cnn.add(BatchNormalization())
     cnn.add(Dropout(0.5))
 
-    cnn.add(Conv2DTranspose(256, 5, strides=2, padding='same',
-                   kernel_initializer='glorot_normal'))
-    cnn.add(LeakyReLU())
-    cnn.add(BatchNormalization())
-    cnn.add(Dropout(0.5))
 
-    cnn.add(Conv2DTranspose(1, 5, strides=2, padding='same',
+    cnn.add(Conv2DTranspose(128, 4, strides=(2, 6), padding='same',
                    kernel_initializer='glorot_normal'))
-    cnn.add(LeakyReLU())
+    cnn.add(LeakyReLU(0.2))
     cnn.add(BatchNormalization())
     cnn.add(Dropout(0.5))
-    cnn.add(Cropping2D(cropping=((1, 0) , (2, 2))))
+    cnn.add(Conv2D(1, 4, strides=4, padding='same',
+                   kernel_initializer='glorot_normal'))
+    cnn.add(LeakyReLU())
 
     # dense layer to reshape
     cnn.summary()
@@ -88,19 +90,30 @@ def build_discriminator():
     print('Discriminator')
     cnn = Sequential()
     cnn.add(Conv2D(32, 3, padding='same', strides=2,
-                   input_shape=(1, 3, 12)))
+                   input_shape=(1, 4, 12)))
+    cnn.add(LeakyReLU(0.2))
+    cnn.add(Dropout(0.3))
+
+
+    cnn.add(Conv2D(256, 3, padding='same', strides=1))
+    cnn.add(LeakyReLU(0.2))
+    cnn.add(Dropout(0.3))
+
+    cnn.add(Conv2D(128, 3, padding='same', strides=1))
     cnn.add(LeakyReLU())
     cnn.add(Dropout(0.3))
 
     cnn.add(Conv2D(64, 3, padding='same', strides=1))
-    cnn.add(LeakyReLU())
+    cnn.add(LeakyReLU(0.2))
     cnn.add(Dropout(0.3))
 
     cnn.add(Flatten())
-    cnn.add(Dense(1024, activation='relu'))
+    cnn.add(Dense(1024))
+    cnn.add(LeakyReLU(0.2))
     cnn.add(Dropout(0.3))
-    cnn.add(Dense(1024, activation='relu'))
-    patient = Input(shape=(1, 3, 12))
+    cnn.add(Dense(1024))
+    cnn.add(LeakyReLU(0.2))
+    patient = Input(shape=(1, 4, 12))
 
     features = cnn(patient)
     cnn.summary()
@@ -214,8 +227,8 @@ if __name__ == '__main__':
 
     # Set session details and placeholders for privacy accountant
     sess = K.get_session()
-    eps = K.placeholder(tf.float32)
-    delta = K.placeholder(tf.float32)
+    eps = K.placeholder(dtype=tf.float32)
+    delta = K.placeholder(dtype=tf.float32)
 
     for epoch in range(epochs):
         print('Epoch {} of {}'.format(epoch + 1, epochs))
