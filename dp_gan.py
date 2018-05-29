@@ -36,14 +36,14 @@ K.set_image_data_format('channels_first')
 target_eps = [0.125,0.25,0.5,1,2,4,8]
 priv_accountant = accountant.GaussianMomentsAccountant(training_size)
 
-def build_generator(latent_size):
+def build_generator(latent_size, generator_start_shape):
     # Map z, L where z is latent vector and L is a label (intensize/nonintensive)
     print('Generator')
     cnn = Sequential()
 
-    cnn.add(Dense(32 * 4 * 4, activation='relu', input_dim=latent_size))
+    cnn.add(Dense(np.prod(generator_start_shape), activation='relu', input_dim=latent_size))
     cnn.add(LeakyReLU(0.2))
-    cnn.add(Reshape((32, 4, 4)))
+    cnn.add(Reshape((generator_start_shape)))
     cnn.add(Dropout(0.5))
 
     cnn.add(Conv2DTranspose(256, 4, strides=2, padding='same',
@@ -53,7 +53,7 @@ def build_generator(latent_size):
     cnn.add(Dropout(0.5))
 
 
-    cnn.add(Conv2DTranspose(128, 4, strides=(2, 6), padding='same',
+    cnn.add(Conv2DTranspose(128, 4, strides=2, padding='same',
                    kernel_initializer='glorot_normal'))
     cnn.add(LeakyReLU(0.2))
     cnn.add(BatchNormalization())
@@ -84,13 +84,13 @@ def build_generator(latent_size):
     return Model([latent, patient_class], fake_patient)
 
 
-def build_discriminator():
+def build_discriminator(input_shape):
     # build a relatively standard conv net, with LeakyReLUs as suggested in
     # the reference paper
     print('Discriminator')
     cnn = Sequential()
     cnn.add(Conv2D(32, 3, padding='same', strides=2,
-                   input_shape=(1, 4, 12)))
+                   input_shape=input_shape))
     cnn.add(LeakyReLU(0.2))
     cnn.add(Dropout(0.3))
 
@@ -113,7 +113,7 @@ def build_discriminator():
     cnn.add(Dropout(0.3))
     cnn.add(Dense(1024))
     cnn.add(LeakyReLU(0.2))
-    patient = Input(shape=(1, 4, 12))
+    patient = Input(shape=input_shape)
 
     features = cnn(patient)
     cnn.summary()
@@ -133,12 +133,16 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", type=int, default=100)
     parser.add_argument("--prefix", default='')
     parser.add_argument("--seed", type=int, default="123")
+    parser.add_argument("--input_shape", type=tuple, default=(1, 4, 60))
+    parser.add_argument("--generator_start_shape", type=tuple, default=(32, 4, 60))
     args = parser.parse_args()
 
     print(args)
     epochs = args.epochs
     batch_size = args.batch_size
     latent_size = 100
+    input_shape = args.input_shape
+    generator_start_shape = args.generator_start_shape
 
     # setting seed for reproducibility
     np.random.seed(args.seed)
@@ -164,7 +168,7 @@ if __name__ == '__main__':
 
     if args.clip_value > 0:
         # build the discriminator
-        discriminator = build_discriminator()
+        discriminator = build_discriminator(input_shape)
         discriminator.compile(
             optimizer=NoisySGD(lr=sgd_lr, momentum=sgd_momentum,
                                 decay=sgd_decay,
@@ -174,14 +178,14 @@ if __name__ == '__main__':
                   'sparse_categorical_crossentropy']
         )
     else:
-        discriminator = build_discriminator()
+        discriminator = build_discriminator(input_shape)
         discriminator.compile(
             optimizer=SGD(lr=sgd_lr, momentum=sgd_momentum, decay=sgd_decay),
             loss=['binary_crossentropy', 'sparse_categorical_crossentropy']
         )
 
     # build the generator
-    generator = build_generator(latent_size)
+    generator = build_generator(latent_size, generator_start_shape)
     generator.compile(optimizer=Adam(lr=adam_lr, beta_1=adam_beta_1),
                       loss='binary_crossentropy')
 
